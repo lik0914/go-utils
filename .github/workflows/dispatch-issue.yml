@@ -1,0 +1,33 @@
+# 手动触发并用 GITHUB_TOKEN 创建 Issue 的示例
+# 用法：复制到仓库 .github/workflows/ 下，在 Actions 页选择该 workflow → Run workflow
+
+name: Dispatch - Create Issue (GITHUB_TOKEN)
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 'Issue 标题'
+        required: true
+        default: '【测试】workflow_dispatch + GITHUB_TOKEN 创建的 Issue'
+      body:
+        description: 'Issue 正文（可选）'
+        required: false
+        default: '由 workflow_dispatch 手动触发，使用默认 GITHUB_TOKEN 创建。'
+
+permissions:
+  contents: read
+  issues: write   # 创建 Issue 必需
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue with GITHUB_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "${{ github.event.inputs.title }}" \
+            --body "${{ github.event.inputs.body }}\n\n- 触发时间: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --repo "${{ github.repository }}"
