@@ -31,18 +31,27 @@ jobs:
       - name: Test
         run: go test -v ./...
 
-      - name: Stage binaries for artifact
+      # go build -o <dir> ./... 要求至少一个 main 包；纯库（如 go-utils）会报 no main packages。
+      # 因此：始终打包元数据 + go.mod/go.sum；若有 main 包再额外写入 staging/bin/。
+      - name: Stage artifact contents
         run: |
-          mkdir -p staging
+          mkdir -p staging/bin
           {
             echo "environment=${{ inputs.environment }}"
             echo "sha=${{ github.sha }}"
             echo "run_id=${{ github.run_id }}"
           } > staging/workflow-meta.txt
-          go build -v -o staging/ ./...
+          cp go.mod staging/
+          [ -f go.sum ] && cp go.sum staging/
+          if go build -v -o staging/bin/ ./...; then
+            echo "main_packages=true" >> staging/workflow-meta.txt
+          else
+            echo "main_packages=false" >> staging/workflow-meta.txt
+            echo "Library-only module: no binaries staged (go build ./... already passed above)."
+          fi
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: go-build-${{ github.run_id }}
           path: staging/
@@ -60,7 +69,7 @@ jobs:
     needs: build
     steps:
       - name: Download build artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: go-build-${{ github.run_id }}
           path: downloaded
