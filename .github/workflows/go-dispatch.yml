@@ -7,32 +7,72 @@ on:
         description: 'Environment'
         required: true
         type: string
+
 env:
   ENV_TEST: env_test
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     environment: env_test01
     env:
-      BUILD_ENV_TEST: ${{vars.VAR_TEST01}}
+      BUILD_ENV_TEST: ${{ vars.VAR_TEST01 }}
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.23
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
 
-    - name: Build
-      run: go build -v ./...
+      - name: Build
+        run: go build -v ./...
 
-    - name: Test
-      run: go test -v ./...
+      - name: Test
+        run: go test -v ./...
 
-    - name: Test echo
-      run: echo "Deploying to ${{ inputs.environment }} ${{secrets.GITHUB_TOKEN}}"
+      - name: Stage binaries for artifact
+        run: |
+          mkdir -p staging
+          {
+            echo "environment=${{ inputs.environment }}"
+            echo "sha=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+          } > staging/workflow-meta.txt
+          go build -v -o staging/ ./...
 
-    - name: test env
-      run: echo "Env test var ${{vars.VAR_TEST01}} env $ENV_TEST $BUILD_ENV_TEST"
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: go-build-${{ github.run_id }}
+          path: staging/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Test echo
+        run: echo "Deploying to ${{ inputs.environment }}"
+
+      - name: test env
+        run: echo "Env test var ${{ vars.VAR_TEST01 }} env $ENV_TEST $BUILD_ENV_TEST"
+
+  verify-artifact:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: go-build-${{ github.run_id }}
+          path: downloaded
+
+      - name: List downloaded artifact
+        run: ls -laR downloaded
+
+      - name: Sanity check (non-empty artifact)
+        run: |
+          count=$(find downloaded -type f | wc -l)
+          if [ "$count" -lt 1 ]; then
+            echo "No files in artifact (staging may be empty for this module layout)"
+            exit 1
+          fi
+          echo "Artifact contains $count file(s)"
