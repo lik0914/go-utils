@@ -52,6 +52,7 @@ jobs:
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v6
+        id: upload
         with:
           name: go-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: staging/
@@ -64,6 +65,10 @@ jobs:
 
       - name: test env
         run: echo "Env test var ${{ vars.VAR_TEST01 }} env $ENV_TEST $BUILD_ENV_TEST"
+
+      - name: check-artifact
+        run: |
+          echo "artifact-url=${{ steps.upload.outputs.artifact-url }}"
 
   verify-artifact:
     runs-on: ubuntu-latest
