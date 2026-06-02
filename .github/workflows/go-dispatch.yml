@@ -57,6 +57,7 @@ jobs:
           path: staging/
           if-no-files-found: warn
           retention-days: 7
+          overwrite: true
 
       - name: Test echo
         run: echo "Deploying to ${{ inputs.environment }}"
