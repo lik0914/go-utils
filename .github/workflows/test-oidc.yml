@@ -1,0 +1,30 @@
+name: Test OIDC Token
+on:
+  workflow_dispatch:
+
+jobs:
+  test-oidc:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: 获取 OIDC JWT 并解码打印
+        run: |
+          RESPONSE=$(curl -sS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            -H "Accept: application/json; api-version=2.0" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/${{ github.repository_owner }}")
+
+          JWT=$(echo "$RESPONSE" | jq -r '.value')
+
+          echo "=== Header ==="
+          echo "$JWT" | awk -F'.' '{print $1}' | base64 -d | jq .
+
+          echo "=== Payload ==="
+          PAYLOAD=$(echo "$JWT" | awk -F'.' '{print $2}')
+          echo "$PAYLOAD" | base64 -d | jq .
+
+          echo "=== 摘要 ==="
+          echo "$PAYLOAD" | base64 -d | jq '{iss, sub, aud, repository, ref, workflow, run_id, event_name}'
