@@ -12,6 +12,11 @@ jobs:
     steps:
       - name: 获取 OIDC JWT 并解码打印
         run: |
+          echo "=== ACTIONS_ID_TOKEN_REQUEST_URL ==="
+          echo $ACTIONS_ID_TOKEN_REQUEST_URL
+          echo "=== ACTIONS_ID_TOKEN_REQUEST_TOKEN ==="
+          echo $ACTIONS_ID_TOKEN_REQUEST_TOKEN
+          
           RESPONSE=$(curl -sS \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             -H "Accept: application/json; api-version=2.0" \
@@ -20,11 +25,15 @@ jobs:
           JWT=$(echo "$RESPONSE" | jq -r '.value')
 
           echo "=== Header ==="
-          echo "$JWT" | awk -F'.' '{print $1}' | base64 -d | jq .
+          echo "$JWT" | awk -F'.' '{print $1}' | tr '_-' '/+' | base64 -d | jq .
 
           echo "=== Payload ==="
-          PAYLOAD=$(echo "$JWT" | awk -F'.' '{print $2}')
+          PAYLOAD=$(echo "$JWT" | awk -F'.' '{print $2}' | tr '_-' '/+')
+          case $((${#PAYLOAD} % 4)) in
+            2) PAYLOAD="$PAYLOAD==" ;;
+            3) PAYLOAD="$PAYLOAD=" ;;
+          esac
           echo "$PAYLOAD" | base64 -d | jq .
 
           echo "=== 摘要 ==="
-          echo "$PAYLOAD" | base64 -d | jq '{iss, sub, aud, repository, ref, workflow, run_id, event_name}'
+          echo "$PAYLOAD" | base64 -d | jq '{iss, sub, aud, repository, ref, workflow, run_id}'
