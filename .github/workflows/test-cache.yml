@@ -1,0 +1,44 @@
+name: Cache Manual Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      bust_cache:
+        description: "强制换 cache key（填任意非空字符串）"
+        required: false
+        default: ""
+
+jobs:
+  cache-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: .cache-demo
+          key: cache-manual-${{ runner.os }}-${{ github.ref_name }}-${{ inputs.bust_cache || 'v1' }}
+          restore-keys: |
+            cache-manual-${{ runner.os }}-${{ github.ref_name }}-
+
+      - name: Show cache hit
+        run: |
+          echo "cache-hit=${{ steps.cache.outputs.cache-hit }}"
+          if [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
+            echo "命中已有 cache"
+            cat .cache-demo/stamp.txt || true
+          else
+            echo "未命中，将新建 cache 内容"
+          fi
+
+      - name: Write cache payload
+        run: |
+          mkdir -p .cache-demo
+          echo "written_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .cache-demo/stamp.txt
+          echo "run_id=${{ github.run_id }}" >> .cache-demo/stamp.txt
+          echo "actor=${{ github.actor }}" >> .cache-demo/stamp.txt
+          echo "ref=${{ github.ref }}" >> .cache-demo/stamp.txt
+          cat .cache-demo/stamp.txt
